@@ -1,7 +1,7 @@
 # Code for reproducing manuscript figures and tables
 
 # Set working directory
-setwd("~/dropbox/research/mystudies/ltwstudy_2017/es_specialissue/managementcostpaper/Github/FigureCodeandData/") # Set the working directory to 
+setwd("~/dropbox/research/mystudies/ltwstudy_2017/es_specialissue/managementcostpaper/Github/LakeTahoeWest_ManagementCost/FigureCodeandData/") # Set the working directory to 
 
 # Import and process management cost results data
 management_results_r1 <- read.csv("emds_summaries.csv") # round 1
@@ -37,8 +37,26 @@ Fig4 <- Fig4Data %>%
   ylim(0,100) +
   theme_bw()
 
-# Figure 5
-Fig5Input <- management_results %>% 
+# Figure 5 Fire Results
+fire_ltw <- read.csv("~/dropbox/research/mystudies/ltwstudy_2017/es_specialissue/managementcostpaper/LTW_fire_byinten_allclim_allscen_scenv3.csv")
+fire_ltw <- fire_ltw %>% 
+  filter(Climate == "CanESM_4.5")
+
+fire_ltw %>% 
+  filter(!(Severity %in% c("Rx", "All_fire", "Total_wildfire"))) %>% 
+  group_by(Scenario, Severity) %>% 
+  summarize(Mean_acre = sum(Mean, na.rm=TRUE)) %>% 
+  ggplot() +
+  geom_bar(aes(x=Scenario, y=Mean_acre, fill=factor(Severity, levels=c("High","Medium","Low"))), stat="identity") + 
+  xlab("") + ylab("Area Burned (acres)") +
+  scale_fill_manual(name = "Fire Intensity",
+                    values=c( "#56B4E9", "#009E73","#D55E00")) + 
+  scale_x_discrete(name="", labels=c("Scenario1" = "Scenario 1", "Scenario2" = "Scenario 2", "Scenario3" = "Scenario 3", "Scenario4" = "Scenario 4", "Scenario5" = "Scenario 5")) +
+  theme(legend.position = "") +
+  theme_classic() 
+
+# Figure 6
+Fig6Input <- management_results %>% 
   filter(decade_num <= 30) %>% 
   group_by(scenario) %>% 
   summarize(TotalTreatmentCost = mean(manage.cost.rxfire.timberrev.transport.net_mean)/1000,
@@ -57,7 +75,7 @@ Fig5Input <- management_results %>%
   mutate(NetRevenue = -NetRevenue) %>% 
   dplyr::select(-scenario)
 
-ResultsFig1 <- Fig5Input %>% 
+ResultsFig6 <- Fig6Input %>% 
   dplyr::select(-TotalTreatmentCost) %>%
   gather(key=CostCategory, value=Cost, -Scenario) %>% 
   mutate(CostCategory = factor(CostCategory, levels=c("ThinningCost", "NetRevenue", "RxCost", "WildfireSuppressionCost", "TotalManagementCost"))) %>% 
@@ -71,6 +89,30 @@ ResultsFig1 <- Fig5Input %>%
   theme(axis.text.x=element_blank(),
         axis.ticks = element_blank(),
         panel.border = element_rect(color = "grey", fill = NA, size = 0.5))
+
+# Figure 7
+AcresTreated <- data.frame(Scenario = c("S1", "S2", "S3", "S4", "S5"),
+                           AcresTreated = c(0, 952, 3614, 1398, 2801))
+Fig7Input <- Fig6Input %>% 
+  left_join(AcresTreated, by="Scenario") %>% 
+  mutate(TotalCostPerAcre = 1000*TotalManagementCost / AcresTreated,
+         TreatmentCostPerAcre = 1000*TotalTreatmentCost / AcresTreated)
+  
+Fig7Input  %>% 
+  select(Scenario, TotalCostPerAcre, TreatmentCostPerAcre) %>% 
+  filter(Scenario != "S1") %>% 
+  gather(key="CostCategory", value="CostPerAcre", TotalCostPerAcre:TreatmentCostPerAcre) %>% 
+  ggplot() +
+  geom_bar(aes(x=Scenario, y=CostPerAcre, fill=CostCategory), position="dodge", stat="identity") +
+  xlab("") + ylab("$/treated acre") +
+  scale_x_discrete(labels=c("S1" = "Scenario 1", "S2" = "Scenario 2", "S3" = "Scenario 3", "S4" = "Scenario 4", "S5" = "Scenario 5")) +
+  scale_fill_manual(name = "Cost Type",
+                    labels = c("Treatment + Suppression", "Treatment only"),
+                    values=c( "#56B4E9", "#D55E00")) + 
+  theme_classic() +
+  theme(legend.position = c(.7,.8)) 
+
+ggsave("Figure7.png")
 
 # Table 4
 # First 10 years
